@@ -25,7 +25,7 @@ def generate(unused_argv):
   # TODO describe
   magenta.music.DrumTrack([frozenset([36])])
   primer_drums = magenta.music.DrumTrack(
-    [frozenset(pitches) for pitches in [(36,), (), (), (), (46,)]])
+    [frozenset(pitches) for pitches in [(36,), (), (), (), (46,), (), (), ()]])
   primer_sequence = primer_drums.to_sequence(qpm=120)
 
   # TODO describe
@@ -42,13 +42,18 @@ def generate(unused_argv):
   total_seconds = num_steps * seconds_per_step
 
   # TODO describe
+  # TODO same as min / max in 02
   primer_end_time = primer_sequence.total_time
+
+  # TODO describe
+  start_time = primer_end_time + seconds_per_step
+  end_time = total_seconds
 
   # TODO describe
   generator_options = generator_pb2.GeneratorOptions()
   generator_options.generate_sections.add(
-    start_time=primer_end_time + seconds_per_step,
-    end_time=total_seconds)
+    start_time=1,
+    end_time=end_time)
 
   # TODO describe
   generator_options.args['temperature'].float_value = 0.1
@@ -58,6 +63,20 @@ def generate(unused_argv):
 
   # TODO describe
   sequence = generator.generate(primer_sequence, generator_options)
+
+  # TODO print
+  last_end_time = max(n.end_time for n in sequence.notes)
+  first_start_time = min(n.start_time for n in sequence.notes)
+  primer_length = last_end_time - first_start_time
+  print("seconds_per_step: " + str(seconds_per_step))
+  print("num_steps: " + str(num_steps))
+  print("total_seconds: " + str(total_seconds))
+  print("primer_end_time: " + str(primer_end_time))
+  print("start_time: " + str(start_time))
+  print("end_time: " + str(end_time))
+  print("last_end_time: " + str(last_end_time))
+  print("first_start_time: " + str(first_start_time))
+  print("primer_length: " + str(primer_length))
 
   # TODO describe
   midi_file = os.path.join("output", "out.mid")

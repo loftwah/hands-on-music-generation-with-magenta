@@ -28,8 +28,6 @@ def main(unused_argv):
     hub, generator, seconds_per_sequence, output_file)
   interaction.start()
 
-  print('Interaction stopped.')
-
 
 class LooperMidiInteraction(threading.Thread):
 
@@ -79,9 +77,6 @@ class LooperMidiInteraction(threading.Thread):
 
       time.sleep(self._seconds_per_sequence -
                  ((time.time() - wall_start_time) % self._seconds_per_sequence))
-
-      # import sys
-      # sys.exit(0)
 
 
 tf.app.run(main)
