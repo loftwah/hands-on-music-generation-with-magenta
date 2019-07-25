@@ -1,7 +1,8 @@
+import ast
 import os
-import time
 from datetime import datetime
 
+import magenta
 from bokeh.io import output_file, show
 from magenta.models.drums_rnn import drums_rnn_sequence_generator
 from magenta.music import midi_io
@@ -47,20 +48,36 @@ def get_generator():
   return generator
 
 
-def generate(sequence_generator, input_sequence, response_start_time,
-             response_end_time):
+def generate(sequence_generator, input_sequence, last_end_time, seconds_per_step, total_seconds):
   """from magenta.interfaces.midi.midi_interaction.
   CallAndResponseMidiInteraction#_generate"""
 
   generator_options = generator_pb2.GeneratorOptions()
-  generator_options.input_sections.add(
-    start_time=0,
-    end_time=response_start_time)
-  generator_options.generate_sections.add(
-    start_time=response_start_time,
-    end_time=response_end_time)
+  # time_start_input_section = 0
+  # time_end_input_section = input_sequence.total_time
+  # time_start_generate_section = time_end_input_section
+  # time_end_generate_section = time_end_input_section + length
+  #
+  # print([str(s) for s in [time_start_input_section, time_end_input_section,
+  #                         time_start_generate_section,
+  #                         time_end_generate_section]])
 
-  generator_options.args["temperature"].float_value = TEMPERATURE
+  # last_end_time = 0.5
+  # seconds_per_step = 0.125
+  # total_seconds = 4.0
+
+  # generator_options.input_sections.add(
+  #   start_time=0,
+  #   end_time=last_end_time)
+
+  generator_options.generate_sections.add(
+    start_time=last_end_time + seconds_per_step,
+    end_time=total_seconds)
+
+  generator_options.args['temperature'].float_value = 0.1
+  generator_options.args['beam_size'].int_value = 1
+  generator_options.args['branch_factor'].int_value = 1
+  generator_options.args['steps_per_iteration'].int_value = 1
 
   sequence = sequence_generator.generate(input_sequence, generator_options)
 
@@ -69,10 +86,36 @@ def generate(sequence_generator, input_sequence, response_start_time,
 
 if __name__ == "__main__":
   generator = get_generator()
-  sequence = music_pb2.NoteSequence()
-  sequence = generate(generator, sequence, 0, 4)
 
+  magenta.music.DrumTrack([frozenset([36])])
+  primer_drums = magenta.music.DrumTrack(
+    [frozenset(pitches) for pitches in [(41,), (41,), (41,), (), (41,)]])
+  primer_sequence = primer_drums.to_sequence(qpm=120)
+
+  qpm = 120
+  # steps_per_quarter = 4
+  seconds_per_step = 60.0 / qpm / generator.steps_per_quarter
+  num_steps = 32
+  total_seconds = num_steps * seconds_per_step
+
+  if primer_sequence.notes:
+    last_end_time = max(n.end_time for n in primer_sequence.notes)
+  else:
+    last_end_time = 0
+
+  # sequence = music_pb2.NoteSequence()
+  sequence = generate(generator, primer_sequence, last_end_time, seconds_per_step, total_seconds)
+
+  plot_file = os.path.join("output", "out.html")
+  midi_file = os.path.join("output", "out.mid")
+
+  # midi
+  midi_io.note_sequence_to_midi_file(sequence, midi_file)
+  print(midi_file)
+
+  # plot
   pm = midi_io.note_sequence_to_pretty_midi(sequence)
-  output_file(os.path.join("output", "out.html"))
+  output_file(plot_file)
   plot = draw_midi(pm)
   show(plot)
+  print(plot_file)
