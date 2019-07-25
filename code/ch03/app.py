@@ -5,7 +5,7 @@ import os
 import magenta
 import tensorflow as tf
 from bokeh.io import output_file, show
-from drums_rnn import get_generator, generate
+from drums_rnn import get_generator
 from magenta.interfaces.midi.magenta_midi import midi_hub
 from magenta.interfaces.midi.midi_interaction import adjust_sequence_times
 from magenta.music import midi_io
@@ -30,10 +30,12 @@ def main(unused_argv):
     hub, generator, seconds_per_sequence, output_file)
   interaction.start()
 
+  print('Interaction stopped.')
+
 
 class LooperMidiInteraction(threading.Thread):
 
-  def __init__(self, midi_hub, sequence_generator, seconds_per_sequence,
+  def __init__(self, midi_hub, sequence_generator, seconds_per_sequence, 
                output_file):
     super(LooperMidiInteraction, self).__init__()
     self._midi_hub = midi_hub
@@ -44,7 +46,7 @@ class LooperMidiInteraction(threading.Thread):
   def _generate(self, input_sequence, zero_time, response_start_time,
                 response_end_time):
     """Generates a response sequence with the currently-selected generator.
-
+    
     from magenta.interfaces.midi.midi_interaction.CallAndResponseMidiInteraction
     #_generate
 
@@ -78,28 +80,29 @@ class LooperMidiInteraction(threading.Thread):
     return adjust_sequence_times(response_sequence, zero_time)
 
   def run(self):
-    sequence = music_pb2.NoteSequence()
-    player = self._midi_hub.start_playback(sequence, allow_updates=True)
+    response_sequence = music_pb2.NoteSequence()
 
-    zero_time = time.time()
+    player = self._midi_hub.start_playback(
+      response_sequence, allow_updates=True)
+
+    start_time = time.time()
 
     while True:
       tick_start_time = time.time()
       tick_end_time = tick_start_time + self._seconds_per_sequence
 
-      sequence = generate(self._sequence_generator, sequence,
-                          tick_start_time, tick_end_time)
-      # sequence = adjust_sequence_times(sequence, zero_time)
+      response_sequence = self._generate(
+        response_sequence, start_time, tick_start_time, tick_end_time)
 
-      player.update_sequence(sequence, start_time=tick_start_time)
+      player.update_sequence(response_sequence, start_time=tick_start_time)
 
-      pm = midi_io.note_sequence_to_pretty_midi(sequence)
+      pm = midi_io.note_sequence_to_pretty_midi(response_sequence)
       output_file(self._output_file)
       plot = draw_midi(pm)
       show(plot)
 
-      time.sleep(self._seconds_per_sequence
-                 - ((time.time() - zero_time) % self._seconds_per_sequence))
+      time.sleep(self._seconds_per_sequence 
+                 - ((time.time() - start_time) % self._seconds_per_sequence))
 
 
 tf.app.run(main)
