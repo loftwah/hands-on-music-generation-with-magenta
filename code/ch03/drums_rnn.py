@@ -1,11 +1,15 @@
 import os
+import time
 from datetime import datetime
 
+from bokeh.io import output_file, show
 from magenta.models.drums_rnn import drums_rnn_sequence_generator
+from magenta.music import midi_io
 from magenta.music import notebook_utils
 from magenta.music import sequence_generator_bundle
 from magenta.protobuf import generator_pb2
 from magenta.protobuf import music_pb2
+from midi2bokeh import draw_midi
 
 # Model name one of: [one_drum, drum_kit]
 MODEL_NAME = "drum_kit"
@@ -43,42 +47,32 @@ def get_generator():
   return generator
 
 
-def generate():
-  generator = get_generator()
+def generate(sequence_generator, input_sequence, response_start_time,
+             response_end_time):
+  """from magenta.interfaces.midi.midi_interaction.
+  CallAndResponseMidiInteraction#_generate"""
 
-  # Generator options TODO describe
   generator_options = generator_pb2.GeneratorOptions()
+  generator_options.input_sections.add(
+    start_time=0,
+    end_time=response_start_time)
+  generator_options.generate_sections.add(
+    start_time=response_start_time,
+    end_time=response_end_time)
+
   generator_options.args["temperature"].float_value = TEMPERATURE
 
-  # TODO is this unused? yes, but you get QPM and such from dat map
-  generate_section = generator_options.generate_sections.add(start_time=0,
-                                                             end_time=30)
-  # print(generate_section["qpm"])
-
-  # Generate the sequence TODO describe
-  sequence = generator.generate(music_pb2.NoteSequence(), generator_options)
-
-  # Outputs the midi file TODO describe
-  # sequence_proto_to_midi_file(sequence, MIDI_FILE)
-  # midi_file_pretty = sequence_proto_to_pretty_midi(sequence)
-  # https://stackoverflow.com/questions/6030087/play-midi-files-in-python
-  # import pygame
-  # pygame.init()
-  # pygame.mixer.music.load("drum_kit_2019-07-16-14-59-02.mid")
-  # clock = pygame.time.Clock()
-  # while pygame.mixer.music.get_busy():
-  #   clock...
-  # pygame.mixer.music.play()
-
-  # Outputs the plot file TODO describe
-  # plot = plot_sequence(sequence, False)
-  # export_png(plot_file, PLOT_FILE)
-  # export_svgs(plot_file, PLOT_FILE)
-  # output_file(PLOT_FILE)
-  # save(plot)
+  sequence = sequence_generator.generate(input_sequence, generator_options)
 
   return sequence
 
 
 if __name__ == "__main__":
-  print(generate())
+  generator = get_generator()
+  sequence = music_pb2.NoteSequence()
+  sequence = generate(generator, sequence, 0, 4)
+
+  pm = midi_io.note_sequence_to_pretty_midi(sequence)
+  output_file(os.path.join("output", "out.html"))
+  plot = draw_midi(pm)
+  show(plot)
