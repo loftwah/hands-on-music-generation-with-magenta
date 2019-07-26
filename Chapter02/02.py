@@ -16,7 +16,6 @@ from magenta.protobuf import music_pb2
 from Chapter01.midi2plot import plot_midi
 
 
-! CHANGE VALUES FOR HAND DRAWN TO CHECK
 
 
 def app(unused_argv):
